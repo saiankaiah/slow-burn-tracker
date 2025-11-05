@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Slow Burn — Habit Tracker</title>
 
-<!-- Simple PWA meta -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.json" />
+
 <style>
   :root{
     --bg:#F3F4F6; --card:#fff; --accent:#5B5BF1; --success:#3BB273; --muted:#6B7280;
@@ -16,9 +15,9 @@
   }
   html,body{height:100%; margin:0; background:var(--bg); color:#111827}
   .app{max-width:720px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
-  header{padding:18px 16px;display:flex;align-items:center;gap:12px}
+  header{padding:14px 14px;display:flex;align-items:center;gap:12px;background:#000;color:#fff}
   .title{font-weight:700;font-size:18px}
-  .dateChip{margin-left:auto;background:#fff;padding:6px 10px;border-radius:999px;font-size:13px;border:1px solid #eee}
+  .dateChip{margin-left:auto;background:#fff;padding:6px 10px;border-radius:999px;font-size:13px;border:1px solid #eee;color:#111}
   main{padding:10px;flex:1}
   .card{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,0.03)}
   .question{font-weight:600;font-size:18px;text-align:center;margin-bottom:10px}
@@ -29,18 +28,20 @@
   .btn{flex:1;padding:10px;border-radius:10px;background:var(--accent);color:white;text-align:center}
   .btn.ghost{background:#fff;color:#111;border:1px solid #eee}
   nav.bottom{display:flex;gap:8px;padding:10px;background:transparent;position:sticky;bottom:0}
-  .tab{flex:1;padding:8px 6px;background:#fff;border-radius:10px;text-align:center;font-size:13px}
+  .tab{flex:1;padding:8px 6px;background:#fff;border-radius:10px;text-align:center;font-size:13px;box-shadow:0 1px 0 rgba(0,0,0,0.02)}
+  .activeTab{background:#F0F1FF;color:var(--accent);box-shadow:0 4px 14px rgba(91,91,241,0.08)}
   .panel-row{display:flex;gap:12px;align-items:center}
   .progressbar{height:10px;background:#eee;border-radius:8px;overflow:hidden}
   .progress{height:100%;background:var(--accent)}
   .center{display:flex;align-items:center;justify-content:center}
   footer{padding:12px;text-align:center;font-size:13px;color:var(--muted)}
-  input[type="number"]{padding:8px;border-radius:8px;border:1px solid #eee;width:100%}
+  input[type="number"], input[type="text"]{padding:8px;border-radius:8px;border:1px solid #eee;width:100%}
   .seg{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid #eee}
   .seg button{padding:6px 10px;border:0;background:transparent}
   .seg button.active{background:var(--accent);color:white}
   .wide{width:100%}
   canvas{max-width:100%}
+  .muted-box{background:#FBFBFD;border-radius:10px;padding:10px;border:1px solid #F0F0F3}
   @media (min-width:600px){ .app{margin:24px auto} }
 </style>
 
@@ -50,8 +51,8 @@
 <body>
 <div class="app" id="app">
   <header>
-    <div>
-      <div style="font-size:12px;color:var(--muted)">Slow Burn Method</div>
+    <div style="display:flex;flex-direction:column">
+      <div style="font-size:12px;opacity:0.9">Slow Burn Method</div>
       <div class="title">Habit Tracker</div>
     </div>
     <div class="dateChip" id="dateChip"></div>
@@ -61,25 +62,34 @@
     <!-- Tracker -->
     <div id="viewTracker" style="display:none">
       <div class="card">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:8px" id="progressPill">Effort: 0/10</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:14px;font-weight:600">Effort</div>
+          <div class="small" id="progressPill">0/10</div>
+        </div>
+
         <div class="question" id="questionTitle"></div>
         <div id="optionsWrap"></div>
-        <div class="nav">
-          <button class="btn ghost" id="backBtn">Back</button>
-          <button class="btn" id="nextBtn">Next</button>
+
+        <div style="display:flex;justify-content:space-between;margin-top:12px">
+          <button class="btn ghost" id="backBtn" style="flex:0 0 46%;padding:10px">Back</button>
+          <button class="btn" id="nextBtn" style="flex:0 0 46%;padding:10px">Next</button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--muted);text-align:center">Tip: tap an option to save and auto-advance.</div>
     </div>
 
-    <!-- Efforts -->
+    <!-- Efforts (history) -->
     <div id="viewEfforts" style="display:none">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><b>Last 14 days</b></div>
+          <div><b>Efforts</b></div>
           <div class="small">Range <select id="rangeSelect"><option>14</option><option>30</option><option>7</option></select></div>
         </div>
         <div id="historyList" style="margin-top:12px"></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:600">Effort Chart</div>
+        <canvas id="effortChart" height="120"></canvas>
       </div>
     </div>
 
@@ -92,30 +102,58 @@
             <button id="exportCsv" class="btn ghost">Export CSV</button>
           </div>
         </div>
+
         <div style="margin-top:12px">
-          <canvas id="chart" height="120"></canvas>
+          <canvas id="completionChart" height="120"></canvas>
         </div>
-        <div style="margin-top:12px">
-          <div style="font-weight:600">Today's score</div>
-          <div id="todayScore" style="font-size:22px;margin-top:6px"></div>
+
+        <div style="margin-top:14px;display:flex;gap:12px">
+          <div style="flex:1" class="muted-box">
+            <div style="font-weight:600">Today's score</div>
+            <div id="todayScore" style="font-size:18px;margin-top:6px"></div>
+          </div>
+          <div style="flex:1" class="muted-box">
+            <div style="font-weight:600">Weight (kg)</div>
+            <div id="weightSummary" style="font-size:18px;margin-top:6px">—</div>
+            <div style="margin-top:8px"><button id="addWeightBtn" class="btn ghost" style="padding:8px;width:100%">Add today's weight</button></div>
+          </div>
         </div>
+
+        <div id="weightChartWrap" style="margin-top:12px;display:none" class="card">
+          <div style="font-weight:600">Weight trend (last 20 entries)</div>
+          <canvas id="weightChart" height="110"></canvas>
+        </div>
+
       </div>
     </div>
 
     <!-- Onboarding / Settings -->
     <div id="viewSettings" style="display:none">
       <div class="card">
-        <div style="font-weight:600">Onboarding & Settings</div>
+        <div style="font-weight:600">Settings</div>
         <div style="margin-top:8px" class="small">Enter your weight (kg) — optional, used for protein guidance</div>
-        <div style="margin-top:10px">
+        <div style="margin-top:10px;display:flex;gap:8px">
           <input id="weightInput" type="number" placeholder="e.g. 72" />
+          <button id="saveWeightBtn" class="btn" style="flex:0 0 120px;padding:8px">Save</button>
         </div>
-        <div style="margin-top:12px"><label><input id="morningRem" type="checkbox" /> Morning reminder (notified by Safari calendar — not automatic)</label></div>
+
+        <div style="margin-top:12px"><label><input id="morningRem" type="checkbox" /> Morning reminder (use calendar or manual alert)</label></div>
         <div style="margin-top:6px"><label><input id="eveningRem" type="checkbox" /> Evening reminder</label></div>
+
         <div style="margin-top:12px;display:flex;gap:8px">
           <button class="btn" id="saveSettings">Save</button>
           <button class="btn ghost" id="clearAll">Reset Data</button>
         </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:600;margin-bottom:6px">Export / Backup</div>
+        <div class="small" style="margin-bottom:8px">Export your data as CSV and store it safely (Files, email, Drive).</div>
+        <div style="display:flex;gap:8px">
+          <button id="exportCsv2" class="btn ghost" style="flex:1">Export CSV</button>
+          <button id="importBtn" class="btn ghost" style="flex:1">Import CSV</button>
+        </div>
+        <div style="margin-top:8px" class="small">Tip: export regularly to back up device-only data.</div>
       </div>
     </div>
 
@@ -135,7 +173,11 @@
 </div>
 
 <script>
-/* Single file web app logic. Stores per-day entries in localStorage under "sb_entries". */
+/* improved single-file web app logic. localStorage keys */
+const KEY = "sb_entries_v2";
+const SETTINGS = "sb_settings_v2";
+const WEIGHTS = "sb_weights_v2";
+
 const QUESTIONS = [
   {id:1,title:"How much did you sleep today?",options:["7 hours or more","6 to 7 hours","Under 6 hours"],pos:[0]},
   {id:2,title:"Did you drink at least 2 litres of water today?",options:["Yes!","No"],pos:[0]},
@@ -149,16 +191,16 @@ const QUESTIONS = [
   {id:10,title:"Did you exercise today?",options:["Yes! I worked hard.","Yes, but only a light workout","No"],pos:[0,1]}
 ];
 
-const KEY = "sb_entries_v1";
-const SETTINGS = "sb_settings_v1";
-
 function isoDate(d=new Date()){ const f = new Date(d); f.setHours(0,0,0,0); return f.toISOString().slice(0,10); }
-function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}"); }catch(e){return{}} }
-function saveAll(obj){ localStorage.setItem(KEY, JSON.stringify(obj)); }
-function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS)||"{}"); }catch(e){return{} } }
-function saveSettings(s){ localStorage.setItem(SETTINGS, JSON.stringify(s)); }
+function shortDateLabel(d){ const date = new Date(d); return date.toLocaleDateString(undefined,{day:'2-digit',month:'short'}); }
+function load(key, fallback){ try{ return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch(e){ return fallback; } }
+function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
 
-// UI elements
+let entries = load(KEY, {});
+let settings = load(SETTINGS, {weightKg:null,morning:false,evening:false});
+let weights = load(WEIGHTS, []); // [{date:"yyyy-mm-dd", kg: 68.0}, ...]
+
+// DOM refs
 const dateChip = document.getElementById("dateChip");
 dateChip.innerText = new Date().toLocaleDateString();
 
@@ -177,34 +219,40 @@ const optionsWrap = document.getElementById("optionsWrap");
 const progressPill = document.getElementById("progressPill");
 const backBtn = document.getElementById("backBtn");
 const nextBtn = document.getElementById("nextBtn");
+
 const historyList = document.getElementById("historyList");
 const rangeSelect = document.getElementById("rangeSelect");
-const chartCanvas = document.getElementById("chart");
+
+const completionChartCanvas = document.getElementById("completionChart");
+const effortChartCanvas = document.getElementById("effortChart");
+const weightChartCanvas = document.getElementById("weightChart");
+
 const todayScore = document.getElementById("todayScore");
-const exportCsv = document.getElementById("exportCsv");
+const weightSummary = document.getElementById("weightSummary");
+const addWeightBtn = document.getElementById("addWeightBtn");
+const weightChartWrap = document.getElementById("weightChartWrap");
 
 const weightInput = document.getElementById("weightInput");
 const morningRem = document.getElementById("morningRem");
 const eveningRem = document.getElementById("eveningRem");
 const saveSettingsBtn = document.getElementById("saveSettings");
 const clearAllBtn = document.getElementById("clearAll");
+
+const exportCsv = document.getElementById("exportCsv");
+const exportCsv2 = document.getElementById("exportCsv2");
+const importBtn = document.getElementById("importBtn");
+const saveWeightBtn = document.getElementById("saveWeightBtn");
+const addWeightButton = document.getElementById("addWeightBtn");
 const confettiEl = document.getElementById("confetti");
 
-// state
-let entries = loadAll();
-let settings = loadSettings();
-if(!settings.weightKg) settings.weightKg = null;
-if(settings.morning===undefined) settings.morning = false;
-if(settings.evening===undefined) settings.evening = false;
-
 let currentIdx = 0;
-let activeView = "tracker";
-let chart=null;
+let activeView = 'tracker';
+let completionChart=null, effortChart=null, weightChart=null;
 
 function ensureTodayEntry(){
   const k = isoDate();
   if(!entries[k]) entries[k] = {date:k, answers: Array(QUESTIONS.length).fill(null), score:0};
-  saveAll(entries);
+  save(KEY, entries);
 }
 
 function computeScore(ans){
@@ -217,11 +265,12 @@ function computeScore(ans){
   return sum;
 }
 
+// Tracker rendering
 function renderTracker(){
   ensureTodayEntry();
   const k = isoDate();
   const e = entries[k];
-  progressPill.innerText = "Effort: " + e.answers.filter(x=>x!==null).length + "/" + QUESTIONS.length;
+  progressPill.innerText = e.answers.filter(x=>x!==null).length + " / " + QUESTIONS.length;
   questionTitle.innerText = QUESTIONS[currentIdx].title;
   optionsWrap.innerHTML = "";
   QUESTIONS[currentIdx].options.forEach((opt, i)=>{
@@ -232,10 +281,10 @@ function renderTracker(){
       e.answers[currentIdx] = i;
       e.score = computeScore(e.answers);
       entries[k] = e;
-      saveAll(entries);
+      save(KEY, entries);
       confettiEl.style.display="block";
-      setTimeout(()=>confettiEl.style.display="none",900);
-      // auto advance
+      setTimeout(()=>confettiEl.style.display="none",700);
+      // auto-advance
       if(currentIdx < QUESTIONS.length-1){
         currentIdx++;
         renderTracker();
@@ -244,19 +293,16 @@ function renderTracker(){
       }
       renderResults();
       renderHistory();
+      updateEffortChart();
     };
     optionsWrap.appendChild(b);
   });
 }
 
-backBtn.onclick = ()=>{
-  if(currentIdx>0) currentIdx--, renderTracker();
-};
-nextBtn.onclick = ()=>{
-  if(currentIdx<QUESTIONS.length-1) currentIdx++, renderTracker();
-};
+backBtn.onclick = ()=>{ if(currentIdx>0){ currentIdx--; renderTracker(); } };
+nextBtn.onclick = ()=>{ if(currentIdx<QUESTIONS.length-1){ currentIdx++; renderTracker(); } };
 
-// History / efforts
+// History
 function renderHistory(){
   historyList.innerHTML = "";
   const days = parseInt(rangeSelect.value || "14");
@@ -280,31 +326,91 @@ function renderHistory(){
 
 // Results chart
 function renderResults(){
+  // build data for last N days (14)
   const days = 14;
-  const data=[];
+  const labels = []; const values = []; const effValues = [];
   for(let i=days-1;i>=0;i--){
     const d = new Date(); d.setDate(d.getDate()-i);
     const k = isoDate(d);
     const e = entries[k] || {answers:Array(QUESTIONS.length).fill(null),score:0};
-    const pct = e.answers.filter(x=>x!==null).length / QUESTIONS.length;
-    data.push({date:k, pct: Math.round(pct*100), score:e.score});
+    const pct = Math.round((e.answers.filter(x=>x!==null).length/QUESTIONS.length)*100);
+    labels.push(shortDateLabel(k));
+    values.push(pct);
+    effValues.push(e.score); // raw score (0..10)
   }
-  // Chart.js bar
-  if(chart) chart.destroy();
-  const ctx = chartCanvas.getContext("2d");
-  chart = new Chart(ctx, {
+  // completionChart (percentage)
+  if(completionChart) completionChart.destroy();
+  completionChart = new Chart(completionChartCanvas.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: data.map(d=>d.date.slice(5)),
-      datasets: [{label:'Completion %', data: data.map(d=>d.pct), backgroundColor: '#5B5BF1'}]
+      labels: labels,
+      datasets: [{ label: 'Completion %', data: values, backgroundColor: '#5B5BF1' }]
     },
     options: {
-      scales:{ y:{ beginAtZero:true, max:100 } }
+      responsive:true,
+      scales: {
+        y: { beginAtZero:true, max:100, ticks: { callback: v=>v + '%' } }
+      },
+      plugins: { legend: { display:false } }
     }
   });
-  // today's score
+
+  // Effort chart (show percent also)
+  updateEffortChart();
+
+  // today's score and weight
   const today = entries[isoDate()] || {answers:Array(QUESTIONS.length).fill(null),score:0};
   todayScore.innerText = `${today.score} / ${QUESTIONS.length} • ${Math.round((today.answers.filter(x=>x!==null).length/QUESTIONS.length)*100)}% completed`;
+
+  // weight summary
+  if(weights.length>0){
+    const last = weights[weights.length-1];
+    weightSummary.innerText = `${last.kg.toFixed(1)} kg (${last.date})`;
+    renderWeightChart();
+  } else {
+    weightSummary.innerText = "—";
+    weightChartWrap.style.display = "none";
+    if(weightChart){ weightChart.destroy(); weightChart = null; }
+  }
+}
+
+function updateEffortChart(){
+  // last 20 days effort as percentage of score / 10
+  const days = 20;
+  const labels=[]; const values=[];
+  for(let i=days-1;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = isoDate(d);
+    const e = entries[k] || {answers:Array(QUESTIONS.length).fill(null),score:0};
+    const pct = Math.round((e.score / QUESTIONS.length) * 100);
+    labels.push(shortDateLabel(k));
+    values.push(pct);
+  }
+  if(effortChart) effortChart.destroy();
+  effortChart = new Chart(effortChartCanvas.getContext('2d'), {
+    type:'line',
+    data: { labels, datasets: [{ label:'Effort %', data: values, borderColor:'#5B5BF1', backgroundColor:'rgba(91,91,241,0.08)', fill:true }] },
+    options: {
+      responsive:true,
+      scales: { y: { beginAtZero:true, max:100, ticks:{callback:v=>v+'%'} } },
+      plugins:{ legend:{ display:false } }
+    }
+  });
+}
+
+// Weight chart
+function renderWeightChart(){
+  if(weights.length===0) return;
+  const last = weights.slice(-20);
+  const labels = last.map(w => shortDateLabel(w.date));
+  const data = last.map(w => w.kg);
+  weightChartWrap.style.display = "block";
+  if(weightChart) weightChart.destroy();
+  weightChart = new Chart(weightChartCanvas.getContext('2d'), {
+    type:'line',
+    data:{ labels, datasets:[{ label:'Weight (kg)', data, borderColor:'#3BB273', backgroundColor:'rgba(59,178,115,0.08)', fill:true }] },
+    options:{ responsive:true, scales:{ y:{ beginAtZero:false } }, plugins:{ legend:{ display:false } } }
+  });
 }
 
 // navigation
@@ -314,43 +420,68 @@ function showView(v){
   viewEfforts.style.display = (v==='efforts')?'block':'none';
   viewResults.style.display = (v==='results')?'block':'none';
   viewSettings.style.display = (v==='settings')?'block':'none';
-  [tabTracker,tabEfforts,tabResults,tabSettings].forEach(t=>t.style.background="#fff");
-  if(v==='tracker') tabTracker.style.background="#eee";
-  if(v==='efforts') tabEfforts.style.background="#eee";
-  if(v==='results') tabResults.style.background="#eee";
-  if(v==='settings') tabSettings.style.background="#eee";
+  [tabTracker,tabEfforts,tabResults,tabSettings].forEach(t=>t.classList.remove('activeTab'));
+  if(v==='tracker') tabTracker.classList.add('activeTab');
+  if(v==='efforts') tabEfforts.classList.add('activeTab');
+  if(v==='results') tabResults.classList.add('activeTab');
+  if(v==='settings') tabSettings.classList.add('activeTab');
   if(v==='tracker') renderTracker();
   if(v==='results') renderResults();
-  if(v==='efforts') renderHistory();
+  if(v==='efforts') { renderHistory(); updateEffortChart(); }
   if(v==='settings') loadSettingsUI();
 }
 
-tabTracker.onclick = ()=>{ showView('tracker') };
-tabEfforts.onclick = ()=>{ showView('efforts') };
-tabResults.onclick = ()=>{ showView('results') };
-tabSettings.onclick = ()=>{ showView('settings') };
+tabTracker.onclick = ()=>showView('tracker');
+tabEfforts.onclick = ()=>showView('efforts');
+tabResults.onclick = ()=>showView('results');
+tabSettings.onclick = ()=>showView('settings');
+
+rangeSelect.onchange = ()=>{ renderHistory(); updateEffortChart(); };
 
 // settings
 function loadSettingsUI(){
-  if(settings.weightKg) weightInput.value = settings.weightKg;
+  weightInput.value = settings.weightKg || '';
   morningRem.checked = !!settings.morning;
   eveningRem.checked = !!settings.evening;
 }
 saveSettingsBtn.onclick = ()=>{
-  settings.weightKg = weightInput.value?Number(weightInput.value):null;
+  settings.weightKg = weightInput.value ? Number(weightInput.value) : null;
   settings.morning = morningRem.checked;
   settings.evening = eveningRem.checked;
-  saveSettings(settings);
-  alert("Saved settings");
+  save(SETTINGS, settings);
+  alert("Settings saved");
+  renderResults();
 };
 clearAllBtn.onclick = ()=>{
   if(confirm("This will delete all saved data on this device. Continue?")){
-    entries = {}; saveAll(entries); location.reload();
+    entries = {}; save(KEY, entries); weights = []; save(WEIGHTS, weights); location.reload();
   }
 };
 
-// export CSV
-exportCsv.onclick = ()=>{
+// add weight
+saveWeightBtn.onclick = ()=>{ // from settings input
+  const val = parseFloat(weightInput.value);
+  if(!val) { alert("Enter weight"); return; }
+  addWeight(isoDate(), val);
+  settings.weightKg = val; save(SETTINGS, settings); renderResults();
+  alert("Weight saved");
+};
+addWeightButton.onclick = ()=>{ // quick add today's weight: prompt
+  const r = prompt("Enter today's weight in kg (e.g. 68.0)");
+  if(r){ const v = parseFloat(r); if(!isNaN(v)){ addWeight(isoDate(), v); renderResults(); save(WEIGHTS, weights); alert("Saved"); } }
+};
+
+function addWeight(date, kg){
+  // replace entry for date if exists
+  const idx = weights.findIndex(w => w.date === date);
+  if(idx >= 0){ weights[idx].kg = kg; } else { weights.push({date, kg}); }
+  // keep sorted by date
+  weights.sort((a,b)=> new Date(a.date) - new Date(b.date));
+  save(WEIGHTS, weights);
+}
+
+// CSV export
+function exportCSVfile(){
   const rows = [["date","score","completionPct","answers"]];
   const today = new Date();
   for(let i=0;i<365;i++){
@@ -365,14 +496,18 @@ exportCsv.onclick = ()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href=url; a.download = "habit_export.csv"; document.body.appendChild(a); a.click();
   a.remove(); URL.revokeObjectURL(url);
-};
+}
+
+exportCsv.onclick = exportCSVfile;
+exportCsv2.onclick = exportCSVfile;
+importBtn.onclick = ()=>{ alert("Import from CSV not implemented in this quick build. I can add that next if you want."); };
 
 // startup
 (function init(){
-  // create minimal entries record if empty
-  entries = loadAll();
+  entries = load(KEY, {});
+  settings = load(SETTINGS, settings);
+  weights = load(WEIGHTS, weights);
   ensureTodayEntry();
-  // default view
   showView('tracker');
   renderResults();
   renderHistory();
