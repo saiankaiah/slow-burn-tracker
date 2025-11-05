@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Slow Burn — Habit Tracker</title>
+
+<!-- Simple PWA meta -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json" />
+<style>
+  :root{
+    --bg:#F3F4F6; --card:#fff; --accent:#5B5BF1; --success:#3BB273; --muted:#6B7280;
+    --radius:12px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  html,body{height:100%; margin:0; background:var(--bg); color:#111827}
+  .app{max-width:720px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{padding:18px 16px;display:flex;align-items:center;gap:12px}
+  .title{font-weight:700;font-size:18px}
+  .dateChip{margin-left:auto;background:#fff;padding:6px 10px;border-radius:999px;font-size:13px;border:1px solid #eee}
+  main{padding:10px;flex:1}
+  .card{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:0 6px 18px rgba(0,0,0,0.03)}
+  .question{font-weight:600;font-size:18px;text-align:center;margin-bottom:10px}
+  .option{display:block;padding:12px;border-radius:10px;border:1px solid #EFEFF2;margin:8px 6px;background:#fff;text-align:center}
+  .option.selected{background:#F3F4F8;border-color:#E4E6FF}
+  .small{font-size:13px;color:var(--muted)}
+  .nav{display:flex;gap:8px;margin-top:12px}
+  .btn{flex:1;padding:10px;border-radius:10px;background:var(--accent);color:white;text-align:center}
+  .btn.ghost{background:#fff;color:#111;border:1px solid #eee}
+  nav.bottom{display:flex;gap:8px;padding:10px;background:transparent;position:sticky;bottom:0}
+  .tab{flex:1;padding:8px 6px;background:#fff;border-radius:10px;text-align:center;font-size:13px}
+  .panel-row{display:flex;gap:12px;align-items:center}
+  .progressbar{height:10px;background:#eee;border-radius:8px;overflow:hidden}
+  .progress{height:100%;background:var(--accent)}
+  .center{display:flex;align-items:center;justify-content:center}
+  footer{padding:12px;text-align:center;font-size:13px;color:var(--muted)}
+  input[type="number"]{padding:8px;border-radius:8px;border:1px solid #eee;width:100%}
+  .seg{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid #eee}
+  .seg button{padding:6px 10px;border:0;background:transparent}
+  .seg button.active{background:var(--accent);color:white}
+  .wide{width:100%}
+  canvas{max-width:100%}
+  @media (min-width:600px){ .app{margin:24px auto} }
+</style>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div>
+      <div style="font-size:12px;color:var(--muted)">Slow Burn Method</div>
+      <div class="title">Habit Tracker</div>
+    </div>
+    <div class="dateChip" id="dateChip"></div>
+  </header>
+
+  <main>
+    <!-- Tracker -->
+    <div id="viewTracker" style="display:none">
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px" id="progressPill">Effort: 0/10</div>
+        <div class="question" id="questionTitle"></div>
+        <div id="optionsWrap"></div>
+        <div class="nav">
+          <button class="btn ghost" id="backBtn">Back</button>
+          <button class="btn" id="nextBtn">Next</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);text-align:center">Tip: tap an option to save and auto-advance.</div>
+    </div>
+
+    <!-- Efforts -->
+    <div id="viewEfforts" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><b>Last 14 days</b></div>
+          <div class="small">Range <select id="rangeSelect"><option>14</option><option>30</option><option>7</option></select></div>
+        </div>
+        <div id="historyList" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="viewResults" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><b>Results</b></div>
+          <div>
+            <button id="exportCsv" class="btn ghost">Export CSV</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <canvas id="chart" height="120"></canvas>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-weight:600">Today's score</div>
+          <div id="todayScore" style="font-size:22px;margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onboarding / Settings -->
+    <div id="viewSettings" style="display:none">
+      <div class="card">
+        <div style="font-weight:600">Onboarding & Settings</div>
+        <div style="margin-top:8px" class="small">Enter your weight (kg) — optional, used for protein guidance</div>
+        <div style="margin-top:10px">
+          <input id="weightInput" type="number" placeholder="e.g. 72" />
+        </div>
+        <div style="margin-top:12px"><label><input id="morningRem" type="checkbox" /> Morning reminder (notified by Safari calendar — not automatic)</label></div>
+        <div style="margin-top:6px"><label><input id="eveningRem" type="checkbox" /> Evening reminder</label></div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn" id="saveSettings">Save</button>
+          <button class="btn ghost" id="clearAll">Reset Data</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="confetti" style="display:none;text-align:center;margin-top:10px">🎉 Saved!</div>
+  </main>
+
+  <nav class="bottom">
+    <div class="tab" id="tabTracker">Tracker</div>
+    <div class="tab" id="tabEfforts">Efforts</div>
+    <div class="tab" id="tabResults">Results</div>
+    <div class="tab" id="tabSettings">Settings</div>
+  </nav>
+
+  <footer>
+    Add to Home Screen: Safari → Share → "Add to Home Screen" for app-like behavior.
+  </footer>
+</div>
+
+<script>
+/* Single file web app logic. Stores per-day entries in localStorage under "sb_entries". */
+const QUESTIONS = [
+  {id:1,title:"How much did you sleep today?",options:["7 hours or more","6 to 7 hours","Under 6 hours"],pos:[0]},
+  {id:2,title:"Did you drink at least 2 litres of water today?",options:["Yes!","No"],pos:[0]},
+  {id:3,title:"Did you avoid snacking today?",options:["Yes!","No. I had a tiny snack.","No. I snacked a lot."],pos:[0]},
+  {id:4,title:"Did you undereat in all meals?",options:["Yes!","No, I overate in one meal","No, I overate in two meals","No, I overate in all three meals"],pos:[0]},
+  {id:5,title:"Did you stay away from fatty foods today?",options:["Yes! Nothing fried, oily or creamy.","No"],pos:[0]},
+  {id:6,title:"Did you stay away from sweet foods today?",options:["Yes! Nothing sweet.","No. But I kept it to under 100 calories.","No."],pos:[0]},
+  {id:7,title:"Did you eat at least 2 cups of vegetables or fruits?",options:["Yes!","No"],pos:[0]},
+  {id:8,title:"How much protein did you eat today?",options:["1 to 1.5 grams per kilo of body weight","Under 1 gram per kilo of body weight","More than 1.5 grams per kilo of body weight"],pos:[0,2]},
+  {id:9,title:"How much did you walk today?",options:["10,000 steps / 8 km or more","8,000–10,000 steps / 6.5–8 km","6,000–8,000 steps / 5–6.5 km","Below 6,000 steps / <5 km"],pos:[0,1]},
+  {id:10,title:"Did you exercise today?",options:["Yes! I worked hard.","Yes, but only a light workout","No"],pos:[0,1]}
+];
+
+const KEY = "sb_entries_v1";
+const SETTINGS = "sb_settings_v1";
+
+function isoDate(d=new Date()){ const f = new Date(d); f.setHours(0,0,0,0); return f.toISOString().slice(0,10); }
+function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}"); }catch(e){return{}} }
+function saveAll(obj){ localStorage.setItem(KEY, JSON.stringify(obj)); }
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS)||"{}"); }catch(e){return{} } }
+function saveSettings(s){ localStorage.setItem(SETTINGS, JSON.stringify(s)); }
+
+// UI elements
+const dateChip = document.getElementById("dateChip");
+dateChip.innerText = new Date().toLocaleDateString();
+
+const viewTracker = document.getElementById("viewTracker");
+const viewEfforts = document.getElementById("viewEfforts");
+const viewResults = document.getElementById("viewResults");
+const viewSettings = document.getElementById("viewSettings");
+
+const tabTracker = document.getElementById("tabTracker");
+const tabEfforts = document.getElementById("tabEfforts");
+const tabResults = document.getElementById("tabResults");
+const tabSettings = document.getElementById("tabSettings");
+
+const questionTitle = document.getElementById("questionTitle");
+const optionsWrap = document.getElementById("optionsWrap");
+const progressPill = document.getElementById("progressPill");
+const backBtn = document.getElementById("backBtn");
+const nextBtn = document.getElementById("nextBtn");
+const historyList = document.getElementById("historyList");
+const rangeSelect = document.getElementById("rangeSelect");
+const chartCanvas = document.getElementById("chart");
+const todayScore = document.getElementById("todayScore");
+const exportCsv = document.getElementById("exportCsv");
+
+const weightInput = document.getElementById("weightInput");
+const morningRem = document.getElementById("morningRem");
+const eveningRem = document.getElementById("eveningRem");
+const saveSettingsBtn = document.getElementById("saveSettings");
+const clearAllBtn = document.getElementById("clearAll");
+const confettiEl = document.getElementById("confetti");
+
+// state
+let entries = loadAll();
+let settings = loadSettings();
+if(!settings.weightKg) settings.weightKg = null;
+if(settings.morning===undefined) settings.morning = false;
+if(settings.evening===undefined) settings.evening = false;
+
+let currentIdx = 0;
+let activeView = "tracker";
+let chart=null;
+
+function ensureTodayEntry(){
+  const k = isoDate();
+  if(!entries[k]) entries[k] = {date:k, answers: Array(QUESTIONS.length).fill(null), score:0};
+  saveAll(entries);
+}
+
+function computeScore(ans){
+  let sum=0;
+  for(let i=0;i<QUESTIONS.length;i++){
+    const sel = ans[i];
+    if(sel===null||sel===undefined) continue;
+    if(QUESTIONS[i].pos.includes(sel)) sum++;
+  }
+  return sum;
+}
+
+function renderTracker(){
+  ensureTodayEntry();
+  const k = isoDate();
+  const e = entries[k];
+  progressPill.innerText = "Effort: " + e.answers.filter(x=>x!==null).length + "/" + QUESTIONS.length;
+  questionTitle.innerText = QUESTIONS[currentIdx].title;
+  optionsWrap.innerHTML = "";
+  QUESTIONS[currentIdx].options.forEach((opt, i)=>{
+    const b = document.createElement("button");
+    b.className = "option" + (e.answers[currentIdx]===i?" selected":"");
+    b.innerText = opt;
+    b.onclick = ()=>{
+      e.answers[currentIdx] = i;
+      e.score = computeScore(e.answers);
+      entries[k] = e;
+      saveAll(entries);
+      confettiEl.style.display="block";
+      setTimeout(()=>confettiEl.style.display="none",900);
+      // auto advance
+      if(currentIdx < QUESTIONS.length-1){
+        currentIdx++;
+        renderTracker();
+      } else {
+        renderTracker();
+      }
+      renderResults();
+      renderHistory();
+    };
+    optionsWrap.appendChild(b);
+  });
+}
+
+backBtn.onclick = ()=>{
+  if(currentIdx>0) currentIdx--, renderTracker();
+};
+nextBtn.onclick = ()=>{
+  if(currentIdx<QUESTIONS.length-1) currentIdx++, renderTracker();
+};
+
+// History / efforts
+function renderHistory(){
+  historyList.innerHTML = "";
+  const days = parseInt(rangeSelect.value || "14");
+  for(let i=0;i<days;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = isoDate(d);
+    const e = entries[k] || {date:k,answers:Array(QUESTIONS.length).fill(null),score:0};
+    const pct = Math.round((e.answers.filter(x=>x!==null).length/QUESTIONS.length)*100);
+    const row = document.createElement("div");
+    row.style.display="flex";row.style.alignItems="center";row.style.justifyContent="space-between";row.style.padding="8px 0";
+    const left = document.createElement("div");
+    left.innerHTML = `<div style="font-weight:600">${d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'})}</div><div class="small">Score: ${e.score} • ${pct}%</div>`;
+    const right = document.createElement("div"); right.style.width="150px";
+    const pbar = document.createElement("div"); pbar.className="progressbar"; pbar.style.width="140px";
+    const p = document.createElement("div"); p.className="progress"; p.style.width = pct + "%";
+    pbar.appendChild(p); right.appendChild(pbar);
+    row.appendChild(left); row.appendChild(right);
+    historyList.appendChild(row);
+  }
+}
+
+// Results chart
+function renderResults(){
+  const days = 14;
+  const data=[];
+  for(let i=days-1;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = isoDate(d);
+    const e = entries[k] || {answers:Array(QUESTIONS.length).fill(null),score:0};
+    const pct = e.answers.filter(x=>x!==null).length / QUESTIONS.length;
+    data.push({date:k, pct: Math.round(pct*100), score:e.score});
+  }
+  // Chart.js bar
+  if(chart) chart.destroy();
+  const ctx = chartCanvas.getContext("2d");
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.map(d=>d.date.slice(5)),
+      datasets: [{label:'Completion %', data: data.map(d=>d.pct), backgroundColor: '#5B5BF1'}]
+    },
+    options: {
+      scales:{ y:{ beginAtZero:true, max:100 } }
+    }
+  });
+  // today's score
+  const today = entries[isoDate()] || {answers:Array(QUESTIONS.length).fill(null),score:0};
+  todayScore.innerText = `${today.score} / ${QUESTIONS.length} • ${Math.round((today.answers.filter(x=>x!==null).length/QUESTIONS.length)*100)}% completed`;
+}
+
+// navigation
+function showView(v){
+  activeView = v;
+  viewTracker.style.display = (v==='tracker')?'block':'none';
+  viewEfforts.style.display = (v==='efforts')?'block':'none';
+  viewResults.style.display = (v==='results')?'block':'none';
+  viewSettings.style.display = (v==='settings')?'block':'none';
+  [tabTracker,tabEfforts,tabResults,tabSettings].forEach(t=>t.style.background="#fff");
+  if(v==='tracker') tabTracker.style.background="#eee";
+  if(v==='efforts') tabEfforts.style.background="#eee";
+  if(v==='results') tabResults.style.background="#eee";
+  if(v==='settings') tabSettings.style.background="#eee";
+  if(v==='tracker') renderTracker();
+  if(v==='results') renderResults();
+  if(v==='efforts') renderHistory();
+  if(v==='settings') loadSettingsUI();
+}
+
+tabTracker.onclick = ()=>{ showView('tracker') };
+tabEfforts.onclick = ()=>{ showView('efforts') };
+tabResults.onclick = ()=>{ showView('results') };
+tabSettings.onclick = ()=>{ showView('settings') };
+
+// settings
+function loadSettingsUI(){
+  if(settings.weightKg) weightInput.value = settings.weightKg;
+  morningRem.checked = !!settings.morning;
+  eveningRem.checked = !!settings.evening;
+}
+saveSettingsBtn.onclick = ()=>{
+  settings.weightKg = weightInput.value?Number(weightInput.value):null;
+  settings.morning = morningRem.checked;
+  settings.evening = eveningRem.checked;
+  saveSettings(settings);
+  alert("Saved settings");
+};
+clearAllBtn.onclick = ()=>{
+  if(confirm("This will delete all saved data on this device. Continue?")){
+    entries = {}; saveAll(entries); location.reload();
+  }
+};
+
+// export CSV
+exportCsv.onclick = ()=>{
+  const rows = [["date","score","completionPct","answers"]];
+  const today = new Date();
+  for(let i=0;i<365;i++){
+    const d = new Date(); d.setDate(today.getDate()-i);
+    const k = isoDate(d);
+    const e = entries[k] || {answers:Array(QUESTIONS.length).fill(null),score:0};
+    const pct = Math.round((e.answers.filter(x=>x!==null).length/QUESTIONS.length)*100);
+    rows.push([k, e.score, pct, e.answers.map(a=>a===null?"":a).join("|")]);
+  }
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download = "habit_export.csv"; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(url);
+};
+
+// startup
+(function init(){
+  // create minimal entries record if empty
+  entries = loadAll();
+  ensureTodayEntry();
+  // default view
+  showView('tracker');
+  renderResults();
+  renderHistory();
+  loadSettingsUI();
+})();
+</script>
+</body>
+</html>
